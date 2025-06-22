@@ -4,6 +4,13 @@
 # 作者: Claude
 # 描述: 安装自动明暗主题切换系统
 
+# 加载代理设置
+SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -f "$SCRIPT_ROOT/proxy_env.sh" ]; then
+  source "$SCRIPT_ROOT/proxy_env.sh"
+  echo "已加载代理设置"
+fi
+
 # 检查是否以root权限运行
 if [ "$(id -u)" -ne 0 ]; then
    echo "该脚本需要root权限运行" 

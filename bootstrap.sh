@@ -94,6 +94,11 @@ echo "将安装到: $TARGET_DIR"
 # 询问是否需要设置代理
 read -p "您是否需要设置代理来访问外部网络？(y/n): " need_proxy
 
+# 创建一个临时的代理配置文件，用于后续安装过程
+PROXY_ENV_FILE="/tmp/proxy_env.sh"
+touch $PROXY_ENV_FILE
+chmod +x $PROXY_ENV_FILE
+
 if [ "$need_proxy" = "y" ] || [ "$need_proxy" = "Y" ]; then
     # 询问代理信息
     read -p "请输入代理主机地址: " proxy_host
@@ -110,13 +115,32 @@ if [ "$need_proxy" = "y" ] || [ "$need_proxy" = "Y" ]; then
     export https_proxy="https://$proxy_host:$proxy_port"
     export HTTP_PROXY="http://$proxy_host:$proxy_port"
     export HTTPS_PROXY="https://$proxy_host:$proxy_port"
+    export no_proxy="localhost,127.0.0.1"
+    export NO_PROXY="localhost,127.0.0.1"
     
     echo "临时代理已设置:"
     echo "- HTTP代理: http://$proxy_host:$proxy_port"
     echo "- HTTPS代理: https://$proxy_host:$proxy_port"
+    
+    # 创建代理环境变量脚本，供后续子脚本使用
+    cat > $PROXY_ENV_FILE << EOF
+#!/bin/bash
+export http_proxy="http://$proxy_host:$proxy_port"
+export https_proxy="https://$proxy_host:$proxy_port"
+export HTTP_PROXY="http://$proxy_host:$proxy_port"
+export HTTPS_PROXY="https://$proxy_host:$proxy_port"
+export no_proxy="localhost,127.0.0.1"
+export NO_PROXY="localhost,127.0.0.1"
+EOF
 else
     echo "跳过代理设置。"
     echo "注意: 如果您在内网环境中，可能无法访问外部资源。"
+    
+    # 创建空的代理环境变量脚本
+    cat > $PROXY_ENV_FILE << EOF
+#!/bin/bash
+# 无代理设置
+EOF
 fi
 
 # 安装必要工具
@@ -136,10 +160,15 @@ chown -R $REAL_USER:$REAL_USER "$TARGET_DIR"
 # 下载仓库
 echo "正在获取代码..."
 TMP_ZIP="/tmp/ubuntu-init.zip"
+
+# 使用代理设置下载
+source $PROXY_ENV_FILE
 curl -L -s -o "$TMP_ZIP" "https://github.com/michael-lu-cn/ubuntu-init/archive/refs/heads/main.zip"
 
 if [ $? -ne 0 ]; then
     echo "下载失败，尝试使用git克隆..."
+    # 确保git命令也使用代理
+    source $PROXY_ENV_FILE
     GIT_TERMINAL_PROMPT=0 sudo -u $REAL_USER git clone --depth=1 https://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR"
     
     if [ $? -ne 0 ]; then
@@ -181,6 +210,10 @@ HTTPS_PROTOCOL=https
 EOF
     # 确保.env文件的所有权正确
     chown $REAL_USER:$REAL_USER .env
+    
+    # 复制代理环境变量脚本到安装目录
+    cp $PROXY_ENV_FILE "$TARGET_DIR/proxy_env.sh"
+    chown $REAL_USER:$REAL_USER "$TARGET_DIR/proxy_env.sh"
 fi
 
 # 询问是否开始安装
@@ -191,6 +224,16 @@ read -p "是否继续？(y/n): " start_install
 if [ "$start_install" = "y" ] || [ "$start_install" = "Y" ]; then
     echo ""
     echo "开始安装..."
+    
+    # 确保安装过程中代理始终生效
+    if [ "$need_proxy" = "y" ] || [ "$need_proxy" = "Y" ]; then
+        echo "确保代理在安装过程中生效..."
+        # 修改ubuntu-init.sh，在开头加载代理环境变量
+        sed -i '1a # 加载代理设置\nif [ -f "$(dirname "$0")/proxy_env.sh" ]; then\n  source "$(dirname "$0")/proxy_env.sh"\nfi' "$TARGET_DIR/ubuntu-init.sh"
+    fi
+    
+    # 启动安装
+    source $PROXY_ENV_FILE
     ./ubuntu-init.sh
 else
     echo ""

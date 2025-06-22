@@ -70,17 +70,30 @@ sudo -u $REAL_USER ln -s -f "$USER_HOME/.tmux-config/.tmux.conf" "$USER_HOME/.tm
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "正在复制tmux配置..."
-sudo -u $REAL_USER cp -r "${SCRIPT_DIR}/config/"* "$USER_HOME/"
+echo "配置文件目录: ${SCRIPT_DIR}/config/"
+ls -la "${SCRIPT_DIR}/config/"
 
-# 加载主题文件（检查是否存在）
-if [ ! -f "$USER_HOME/.tmux.theme.dark" ]; then
-  echo "创建默认暗色主题..."
-  sudo -u $REAL_USER cp "${SCRIPT_DIR}/themes/dark.tmux" "$USER_HOME/.tmux.theme.dark"
+# 单独复制每个配置文件，避免使用通配符
+if [ -f "${SCRIPT_DIR}/config/.tmux.conf.local" ]; then
+    echo "复制.tmux.conf.local文件..."
+    sudo -u $REAL_USER cp "${SCRIPT_DIR}/config/.tmux.conf.local" "$USER_HOME/"
+else
+    echo "警告: .tmux.conf.local文件不存在"
 fi
 
-if [ ! -f "$USER_HOME/.tmux.theme.light" ]; then
+# 加载主题文件（检查是否存在）
+if [ -f "${SCRIPT_DIR}/themes/dark.tmux" ]; then
+  echo "创建默认暗色主题..."
+  sudo -u $REAL_USER cp "${SCRIPT_DIR}/themes/dark.tmux" "$USER_HOME/.tmux.theme.dark"
+else
+  echo "警告: 暗色主题文件不存在"
+fi
+
+if [ -f "${SCRIPT_DIR}/themes/light.tmux" ]; then
   echo "创建默认亮色主题..."
   sudo -u $REAL_USER cp "${SCRIPT_DIR}/themes/light.tmux" "$USER_HOME/.tmux.theme.light"
+else
+  echo "警告: 亮色主题文件不存在"
 fi
 
 echo "tmux安装和配置完成！"

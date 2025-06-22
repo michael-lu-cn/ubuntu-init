@@ -71,7 +71,16 @@ sudo -u $REAL_USER git clone --depth 1 https://github.com/wbthomason/packer.nvim
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "正在复制Neovim配置..."
-sudo -u $REAL_USER cp -r "${SCRIPT_DIR}/config/"* "$USER_HOME/.config/nvim/"
+echo "配置文件目录: ${SCRIPT_DIR}/config/"
+ls -la "${SCRIPT_DIR}/config/"
+
+# 递归复制配置文件，避免使用通配符
+if [ -d "${SCRIPT_DIR}/config" ]; then
+    echo "复制Neovim配置文件..."
+    find "${SCRIPT_DIR}/config" -type f -exec echo "复制: {}" \; -exec sudo -u $REAL_USER cp {} "$USER_HOME/.config/nvim/" \;
+else
+    echo "警告: Neovim配置目录不存在"
+fi
 
 # 创建当前主题文件（如果不存在）
 if [ ! -f "$USER_HOME/.config/nvim/theme/current_theme.lua" ]; then

@@ -80,6 +80,35 @@ sudo -u $REAL_USER git clone --depth=1 https://github.com/romkatv/powerlevel10k.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "正在复制zsh配置..."
-sudo -u $REAL_USER cp -r "${SCRIPT_DIR}/config/"* "$USER_HOME/"
+echo "配置文件目录: ${SCRIPT_DIR}/config/"
+ls -la "${SCRIPT_DIR}/config/"
+
+# 单独复制每个配置文件，避免使用通配符
+if [ -f "${SCRIPT_DIR}/config/.zshrc" ]; then
+    echo "复制.zshrc文件..."
+    sudo -u $REAL_USER cp "${SCRIPT_DIR}/config/.zshrc" "$USER_HOME/"
+else
+    echo "警告: .zshrc文件不存在"
+fi
+
+if [ -f "${SCRIPT_DIR}/config/.p10k.dark.zsh" ]; then
+    echo "复制.p10k.dark.zsh文件..."
+    sudo -u $REAL_USER cp "${SCRIPT_DIR}/config/.p10k.dark.zsh" "$USER_HOME/"
+else
+    echo "警告: .p10k.dark.zsh文件不存在"
+fi
+
+if [ -f "${SCRIPT_DIR}/config/.p10k.light.zsh" ]; then
+    echo "复制.p10k.light.zsh文件..."
+    sudo -u $REAL_USER cp "${SCRIPT_DIR}/config/.p10k.light.zsh" "$USER_HOME/"
+else
+    echo "警告: .p10k.light.zsh文件不存在"
+fi
+
+# 创建p10k.zsh软链接
+if [ -f "$USER_HOME/.p10k.dark.zsh" ]; then
+    echo "创建.p10k.zsh软链接..."
+    sudo -u $REAL_USER ln -sf "$USER_HOME/.p10k.dark.zsh" "$USER_HOME/.p10k.zsh"
+fi
 
 echo "zsh安装和配置完成！" 

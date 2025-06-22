@@ -60,27 +60,52 @@ sudo -u $REAL_USER mkdir -p "$USER_HOME/.config/auto-dark-mode"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "正在复制主题脚本..."
-sudo -u $REAL_USER cp -r "${SCRIPT_DIR}/scripts/"* "$USER_HOME/.config/auto-dark-mode/"
+echo "脚本目录: ${SCRIPT_DIR}/scripts/"
+ls -la "${SCRIPT_DIR}/scripts/"
+
+# 单独复制每个脚本文件，避免使用通配符
+if [ -f "${SCRIPT_DIR}/scripts/check-theme.sh" ]; then
+    echo "复制check-theme.sh文件..."
+    sudo -u $REAL_USER cp "${SCRIPT_DIR}/scripts/check-theme.sh" "$USER_HOME/.config/auto-dark-mode/"
+else
+    echo "警告: check-theme.sh文件不存在"
+fi
+
+if [ -f "${SCRIPT_DIR}/scripts/auto-dark-mode.sh" ]; then
+    echo "复制auto-dark-mode.sh文件..."
+    sudo -u $REAL_USER cp "${SCRIPT_DIR}/scripts/auto-dark-mode.sh" "$USER_HOME/.config/auto-dark-mode/"
+else
+    echo "警告: auto-dark-mode.sh文件不存在"
+fi
 
 # 设置执行权限
-chmod +x "$USER_HOME/.config/auto-dark-mode/check-theme.sh"
-chmod +x "$USER_HOME/.config/auto-dark-mode/auto-dark-mode.sh"
+if [ -f "$USER_HOME/.config/auto-dark-mode/check-theme.sh" ]; then
+    chmod +x "$USER_HOME/.config/auto-dark-mode/check-theme.sh"
+fi
+
+if [ -f "$USER_HOME/.config/auto-dark-mode/auto-dark-mode.sh" ]; then
+    chmod +x "$USER_HOME/.config/auto-dark-mode/auto-dark-mode.sh"
+fi
 
 # 设置初始主题
 echo "正在设置初始主题..."
-sudo -u $REAL_USER "$USER_HOME/.config/auto-dark-mode/check-theme.sh" > /tmp/current_theme
-CURRENT_THEME=$(cat /tmp/current_theme)
+if [ -f "$USER_HOME/.config/auto-dark-mode/check-theme.sh" ]; then
+    sudo -u $REAL_USER "$USER_HOME/.config/auto-dark-mode/check-theme.sh" > /tmp/current_theme
+    CURRENT_THEME=$(cat /tmp/current_theme)
 
-# 为zsh配置初始p10k主题链接
-if [ -f "$USER_HOME/.p10k.${CURRENT_THEME}.zsh" ]; then
-  echo "正在链接p10k ${CURRENT_THEME}主题..."
-  sudo -u $REAL_USER ln -sf "$USER_HOME/.p10k.${CURRENT_THEME}.zsh" "$USER_HOME/.p10k.zsh"
+    # 为zsh配置初始p10k主题链接
+    if [ -f "$USER_HOME/.p10k.${CURRENT_THEME}.zsh" ]; then
+        echo "正在链接p10k ${CURRENT_THEME}主题..."
+        sudo -u $REAL_USER ln -sf "$USER_HOME/.p10k.${CURRENT_THEME}.zsh" "$USER_HOME/.p10k.zsh"
+    fi
+
+    # 设置crontab定时检测主题变化（每10分钟）
+    echo "正在设置自动主题检测..."
+    (sudo -u $REAL_USER crontab -l 2>/dev/null || echo "") | grep -v "check-theme.sh" | sudo -u $REAL_USER crontab -
+    (sudo -u $REAL_USER crontab -l 2>/dev/null; echo "*/10 * * * * $USER_HOME/.config/auto-dark-mode/check-theme.sh > /tmp/current_theme 2>/dev/null && $USER_HOME/.config/auto-dark-mode/auto-dark-mode.sh > /dev/null 2>&1") | sudo -u $REAL_USER crontab -
+else
+    echo "警告: 无法设置初始主题，check-theme.sh不存在"
 fi
-
-# 设置crontab定时检测主题变化（每10分钟）
-echo "正在设置自动主题检测..."
-(sudo -u $REAL_USER crontab -l 2>/dev/null || echo "") | grep -v "check-theme.sh" | sudo -u $REAL_USER crontab -
-(sudo -u $REAL_USER crontab -l 2>/dev/null; echo "*/10 * * * * $USER_HOME/.config/auto-dark-mode/check-theme.sh > /tmp/current_theme 2>/dev/null && $USER_HOME/.config/auto-dark-mode/auto-dark-mode.sh > /dev/null 2>&1") | sudo -u $REAL_USER crontab -
 
 echo "主题管理模块安装完成！"
 echo "系统将根据时间或系统设置自动切换明暗主题" 

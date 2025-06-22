@@ -107,11 +107,13 @@ if [ "$need_proxy" = "y" ] || [ "$need_proxy" = "Y" ]; then
     
     # 设置临时代理环境变量
     export http_proxy="http://$proxy_host:$proxy_port"
-    export https_proxy="http://$proxy_host:$proxy_port"
+    export https_proxy="https://$proxy_host:$proxy_port"
     export HTTP_PROXY="http://$proxy_host:$proxy_port"
-    export HTTPS_PROXY="http://$proxy_host:$proxy_port"
+    export HTTPS_PROXY="https://$proxy_host:$proxy_port"
     
-    echo "临时代理已设置: http://$proxy_host:$proxy_port"
+    echo "临时代理已设置:"
+    echo "- HTTP代理: http://$proxy_host:$proxy_port"
+    echo "- HTTPS代理: https://$proxy_host:$proxy_port"
 else
     echo "跳过代理设置。"
     echo "注意: 如果您在内网环境中，可能无法访问外部资源。"
@@ -172,6 +174,10 @@ PROXY_HOST=$proxy_host
 
 # 代理端口
 PROXY_PORT=$proxy_port
+
+# 代理协议
+HTTP_PROTOCOL=http
+HTTPS_PROTOCOL=https
 EOF
     # 确保.env文件的所有权正确
     chown $REAL_USER:$REAL_USER .env

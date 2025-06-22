@@ -56,17 +56,24 @@ if [ -z "$PROXY_HOST" ] || [ -z "$PROXY_PORT" ]; then
     exit 1
 fi
 
-PROXY_URL="http://$PROXY_HOST:$PROXY_PORT"
+# 设置代理协议，如果未在.env中定义则使用默认值
+HTTP_PROTOCOL=${HTTP_PROTOCOL:-http}
+HTTPS_PROTOCOL=${HTTPS_PROTOCOL:-https}
+
+HTTP_PROXY_URL="${HTTP_PROTOCOL}://$PROXY_HOST:$PROXY_PORT"
+HTTPS_PROXY_URL="${HTTPS_PROTOCOL}://$PROXY_HOST:$PROXY_PORT"
 
 echo "==============================================="
-echo "设置代理: $PROXY_URL"
+echo "设置代理:"
+echo "HTTP代理: $HTTP_PROXY_URL"
+echo "HTTPS代理: $HTTPS_PROXY_URL"
 echo "==============================================="
 
 # 设置系统代理
-export http_proxy=$PROXY_URL
-export https_proxy=$PROXY_URL
-export HTTP_PROXY=$PROXY_URL
-export HTTPS_PROXY=$PROXY_URL
+export http_proxy=$HTTP_PROXY_URL
+export https_proxy=$HTTPS_PROXY_URL
+export HTTP_PROXY=$HTTP_PROXY_URL
+export HTTPS_PROXY=$HTTPS_PROXY_URL
 export no_proxy="localhost,127.0.0.1"
 export NO_PROXY="localhost,127.0.0.1"
 
@@ -74,10 +81,10 @@ export NO_PROXY="localhost,127.0.0.1"
 echo "正在添加代理到shell配置..."
 cat > "$USER_HOME/.proxy_profile" << EOF
 # 代理设置
-export http_proxy=$PROXY_URL
-export https_proxy=$PROXY_URL
-export HTTP_PROXY=$PROXY_URL
-export HTTPS_PROXY=$PROXY_URL
+export http_proxy=$HTTP_PROXY_URL
+export https_proxy=$HTTPS_PROXY_URL
+export HTTP_PROXY=$HTTP_PROXY_URL
+export HTTPS_PROXY=$HTTPS_PROXY_URL
 export no_proxy="localhost,127.0.0.1"
 export NO_PROXY="localhost,127.0.0.1"
 EOF
@@ -93,26 +100,26 @@ fi
 
 # 设置Git代理
 echo "正在设置Git代理..."
-sudo -u $REAL_USER git config --global http.proxy $PROXY_URL
-sudo -u $REAL_USER git config --global https.proxy $PROXY_URL
+sudo -u $REAL_USER git config --global http.proxy $HTTP_PROXY_URL
+sudo -u $REAL_USER git config --global https.proxy $HTTPS_PROXY_URL
 
 # 设置APT代理
 echo "正在设置APT代理..."
-echo "Acquire::http::Proxy \"$PROXY_URL\";" | tee /etc/apt/apt.conf.d/proxy.conf
-echo "Acquire::https::Proxy \"$PROXY_URL\";" | tee -a /etc/apt/apt.conf.d/proxy.conf
+echo "Acquire::http::Proxy \"$HTTP_PROXY_URL\";" | tee /etc/apt/apt.conf.d/proxy.conf
+echo "Acquire::https::Proxy \"$HTTPS_PROXY_URL\";" | tee -a /etc/apt/apt.conf.d/proxy.conf
 
 # 设置NPM代理（如果存在）
 if command -v npm &> /dev/null; then
   echo "正在设置NPM代理..."
-  sudo -u $REAL_USER npm config set proxy $PROXY_URL
-  sudo -u $REAL_USER npm config set https-proxy $PROXY_URL
+  sudo -u $REAL_USER npm config set proxy $HTTP_PROXY_URL
+  sudo -u $REAL_USER npm config set https-proxy $HTTPS_PROXY_URL
 fi
 
 # 设置Yarn代理（如果存在）
 if command -v yarn &> /dev/null; then
   echo "正在设置Yarn代理..."
-  sudo -u $REAL_USER yarn config set proxy $PROXY_URL
-  sudo -u $REAL_USER yarn config set https-proxy $PROXY_URL
+  sudo -u $REAL_USER yarn config set proxy $HTTP_PROXY_URL
+  sudo -u $REAL_USER yarn config set https-proxy $HTTPS_PROXY_URL
 fi
 
 # 验证代理
@@ -124,6 +131,8 @@ else
 fi
 
 echo "==============================================="
-echo "代理设置完成！代理地址: $PROXY_URL"
+echo "代理设置完成！"
+echo "HTTP代理: $HTTP_PROXY_URL"
+echo "HTTPS代理: $HTTPS_PROXY_URL"
 echo "请运行 'source ~/.bashrc' 或重新启动终端以应用更改"
 echo "===============================================" 

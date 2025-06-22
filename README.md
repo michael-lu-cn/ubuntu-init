@@ -46,10 +46,19 @@ if [ "$(id -u)" -ne 0 ]; then
    exit 1
 fi
 
-# 获取真实用户
-REAL_USER=$(logname || echo $SUDO_USER || echo $USER)
-if [ "$REAL_USER" = "root" ]; then
-    read -p "请输入您的用户名（不要使用root）: " REAL_USER
+# 获取真实用户（非root）
+REAL_USER=""
+# 尝试从环境变量获取
+if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+    REAL_USER="$SUDO_USER"
+elif [ -n "$(logname 2>/dev/null)" ] && [ "$(logname)" != "root" ]; then
+    REAL_USER="$(logname)"
+fi
+
+# 如果无法自动检测，则询问用户
+if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
+    echo "无法自动检测到非root用户。"
+    read -p "请输入要安装到的用户名（不要使用root）: " REAL_USER
     if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
         echo "错误: 需要有效的非root用户名"
         exit 1
@@ -60,6 +69,19 @@ fi
 USER_HOME=$(eval echo ~$REAL_USER)
 if [ ! -d "$USER_HOME" ]; then
     echo "错误: 用户主目录 $USER_HOME 不存在"
+    exit 1
+fi
+
+# 显示并确认安装信息
+echo ""
+echo "安装信息确认:"
+echo "- 安装用户: $REAL_USER"
+echo "- 用户主目录: $USER_HOME"
+echo "- 安装目录将是: $USER_HOME/.ubuntu-init"
+echo ""
+read -p "以上信息是否正确？(y/n): " confirm_info
+if [ "$confirm_info" != "y" ] && [ "$confirm_info" != "Y" ]; then
+    echo "安装已取消。请重新运行脚本并提供正确的用户信息。"
     exit 1
 fi
 
@@ -183,10 +205,11 @@ fi
 ### 脚本功能
 
 引导脚本将：
-1. 引导您设置用户密码（如果需要）
-2. 询问您是否需要设置代理
-3. 克隆仓库到用户主目录下的`.ubuntu-init`目录（而非root目录）
-4. 自动开始安装过程
+1. 智能检测并确认安装用户和目录
+2. 引导您设置用户密码（如果需要）
+3. 询问您是否需要设置代理
+4. 克隆仓库到用户主目录下的`.ubuntu-init`目录（而非root目录）
+5. 自动开始安装过程
 
 ## 模块列表
 

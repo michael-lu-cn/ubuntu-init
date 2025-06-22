@@ -1,0 +1,146 @@
+#!/bin/bash
+
+# ================================================================
+# Ubuntu开发环境初始化先导脚本
+# ================================================================
+# 用法: 复制此脚本内容并在终端执行以下命令之一：
+#   sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/michael-lu-cn/ubuntu-init/main/bootstrap.sh)"
+#   sudo bash -c "$(wget -qO- https://raw.githubusercontent.com/michael-lu-cn/ubuntu-init/main/bootstrap.sh)"
+# 
+# 功能:
+# - 设置用户密码（如果需要）
+# - 询问并设置代理（如果需要）
+# - 克隆仓库到~/.ubuntu-init
+# - 自动开始安装过程
+# ================================================================
+
+# 清屏
+clear
+
+echo "=================================================="
+echo "       Ubuntu开发环境自动初始化先导脚本           "
+echo "=================================================="
+echo ""
+
+# 检查是否以root权限运行
+if [ "$(id -u)" -ne 0 ]; then
+   echo "错误: 该脚本需要root权限运行" 
+   echo "请使用sudo运行: sudo bash"
+   exit 1
+fi
+
+# 询问是否需要设置用户密码
+echo "首先，您需要确保当前用户有设置密码。"
+read -p "是否需要现在设置密码？(y/n): " need_password
+
+if [ "$need_password" = "y" ] || [ "$need_password" = "Y" ]; then
+    # 获取当前用户名
+    CURRENT_USER=$(logname || echo $SUDO_USER || echo $USER)
+    if [ -z "$CURRENT_USER" ] || [ "$CURRENT_USER" = "root" ]; then
+        read -p "请输入要设置密码的用户名: " CURRENT_USER
+    fi
+    
+    echo "正在为用户 $CURRENT_USER 设置密码..."
+    passwd $CURRENT_USER
+    
+    if [ $? -ne 0 ]; then
+        echo "密码设置失败，但将继续安装过程。"
+        echo "请稍后手动设置密码: sudo passwd $CURRENT_USER"
+    else
+        echo "密码设置成功！"
+    fi
+else
+    echo "跳过密码设置。"
+    echo "注意: 如果您尚未设置密码，请在安装完成后使用 'sudo passwd 用户名' 命令设置。"
+fi
+
+# 创建目标目录
+TARGET_DIR="$HOME/.ubuntu-init"
+echo "将安装到: $TARGET_DIR"
+
+# 询问是否需要设置代理
+read -p "您是否需要设置代理来访问外部网络？(y/n): " need_proxy
+
+if [ "$need_proxy" = "y" ] || [ "$need_proxy" = "Y" ]; then
+    # 询问代理信息
+    read -p "请输入代理主机地址: " proxy_host
+    read -p "请输入代理端口: " proxy_port
+    
+    # 验证代理信息
+    if [ -z "$proxy_host" ] || [ -z "$proxy_port" ]; then
+        echo "错误: 代理信息不完整"
+        exit 1
+    fi
+    
+    # 设置临时代理环境变量
+    export http_proxy="http://$proxy_host:$proxy_port"
+    export https_proxy="http://$proxy_host:$proxy_port"
+    export HTTP_PROXY="http://$proxy_host:$proxy_port"
+    export HTTPS_PROXY="http://$proxy_host:$proxy_port"
+    
+    echo "临时代理已设置: http://$proxy_host:$proxy_port"
+else
+    echo "跳过代理设置。"
+    echo "注意: 如果您在内网环境中，可能无法访问外部资源。"
+fi
+
+# 安装git（如果需要）
+if ! command -v git &> /dev/null; then
+    echo "正在安装git..."
+    apt-get update
+    apt-get install -y git
+fi
+
+# 删除旧目录（如果存在）
+if [ -d "$TARGET_DIR" ]; then
+    echo "发现旧安装，正在删除..."
+    rm -rf "$TARGET_DIR"
+fi
+
+# 克隆仓库
+echo "正在克隆Ubuntu初始化仓库..."
+git clone https://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR"
+
+if [ $? -ne 0 ]; then
+    echo "错误: 克隆仓库失败。请检查网络连接或代理设置。"
+    exit 1
+fi
+
+# 进入目录
+cd "$TARGET_DIR"
+
+# 设置所有脚本的执行权限
+echo "设置脚本执行权限..."
+find . -name "*.sh" -exec chmod +x {} \;
+
+# 如果设置了代理，创建.env文件
+if [ "$need_proxy" = "y" ] || [ "$need_proxy" = "Y" ]; then
+    echo "正在创建代理配置..."
+    cat > .env << EOF
+# 代理设置
+# 自动生成于 $(date)
+
+# 代理主机地址
+PROXY_HOST=$proxy_host
+
+# 代理端口
+PROXY_PORT=$proxy_port
+EOF
+fi
+
+# 询问是否开始安装
+echo ""
+echo "准备开始安装Ubuntu开发环境..."
+read -p "是否继续？(y/n): " start_install
+
+if [ "$start_install" = "y" ] || [ "$start_install" = "Y" ]; then
+    echo ""
+    echo "开始安装..."
+    ./ubuntu-init.sh
+else
+    echo ""
+    echo "安装已取消。"
+    echo "您可以稍后通过运行以下命令继续安装："
+    echo "cd $TARGET_DIR && sudo ./ubuntu-init.sh"
+    exit 0
+fi 

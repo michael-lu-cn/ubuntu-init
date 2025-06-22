@@ -1,251 +1,45 @@
 # Ubuntu 开发服务器初始化脚本
 
-这是一个模块化的Ubuntu开发服务器环境配置工具，用于快速搭建高效的开发环境。
+快速搭建高效开发环境的模块化配置工具。
 
-## 功能特性
+## 功能
 
-- **模块化设计**: 每个组件可单独安装和配置
-- **自动主题切换**: 根据系统设置或时间自动切换明暗主题
-- **开发工具集**: 预配置常用开发工具和插件
-- **终端美化**: 美观且功能强大的终端环境
+- 模块化设计：单独安装和配置各组件
+- 自动主题切换：根据系统设置或时间切换明暗主题
+- 终端美化：Zsh + Powerlevel10k + Tmux
+- Neovim配置：现代化编辑器设置
 
-## 快速开始
+## 一键安装
 
-### 安装方法
-
-1. 将以下脚本内容复制到文本编辑器中
-2. 保存为`bootstrap.sh`
-3. 执行`sudo bash bootstrap.sh`
-
-> **注意**: 此脚本使用匿名方式克隆公开仓库，不需要提供GitHub账号信息。
-
-### 引导脚本内容
+复制以下命令到终端执行：
 
 ```bash
-#!/bin/bash
-
-# ================================================================
-# Ubuntu开发环境初始化先导脚本
-# ================================================================
-# 用途: 设置用户密码和代理，然后自动克隆安装脚本
-# 用法: 将此脚本保存为bootstrap.sh，然后执行 sudo bash bootstrap.sh
-# ================================================================
-
-# 清屏
-clear
-
-echo "=================================================="
-echo "       Ubuntu开发环境自动初始化先导脚本           "
-echo "=================================================="
-echo ""
-
-# 检查是否以root权限运行
-if [ "$(id -u)" -ne 0 ]; then
-   echo "错误: 该脚本需要root权限运行" 
-   echo "请使用sudo运行: sudo bash bootstrap.sh"
-   exit 1
-fi
-
-# 获取真实用户（非root）
-REAL_USER=""
-# 尝试从环境变量获取
-if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-    REAL_USER="$SUDO_USER"
-elif [ -n "$(logname 2>/dev/null)" ] && [ "$(logname)" != "root" ]; then
-    REAL_USER="$(logname)"
-fi
-
-# 如果无法自动检测，则询问用户
-if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
-    echo "无法自动检测到非root用户。"
-    read -p "请输入要安装到的用户名（不要使用root）: " REAL_USER
-    if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
-        echo "错误: 需要有效的非root用户名"
-        exit 1
-    fi
-fi
-
-# 获取用户主目录
-USER_HOME=$(eval echo ~$REAL_USER)
-if [ ! -d "$USER_HOME" ]; then
-    echo "错误: 用户主目录 $USER_HOME 不存在"
-    exit 1
-fi
-
-# 显示并确认安装信息
-echo ""
-echo "安装信息确认:"
-echo "- 安装用户: $REAL_USER"
-echo "- 用户主目录: $USER_HOME"
-echo "- 安装目录将是: $USER_HOME/.ubuntu-init"
-echo ""
-read -p "以上信息是否正确？(y/n): " confirm_info
-if [ "$confirm_info" != "y" ] && [ "$confirm_info" != "Y" ]; then
-    echo "安装已取消。请重新运行脚本并提供正确的用户信息。"
-    exit 1
-fi
-
-# 询问是否需要设置用户密码
-echo "首先，您需要确保当前用户有设置密码。"
-read -p "是否需要现在设置密码？(y/n): " need_password
-
-if [ "$need_password" = "y" ] || [ "$need_password" = "Y" ]; then
-    echo "正在为用户 $REAL_USER 设置密码..."
-    passwd $REAL_USER
-    
-    if [ $? -ne 0 ]; then
-        echo "密码设置失败，但将继续安装过程。"
-        echo "请稍后手动设置密码: sudo passwd $REAL_USER"
-    else
-        echo "密码设置成功！"
-    fi
-else
-    echo "跳过密码设置。"
-    echo "注意: 如果您尚未设置密码，请在安装完成后使用 'sudo passwd $REAL_USER' 命令设置。"
-fi
-
-# 创建目标目录
-TARGET_DIR="$USER_HOME/.ubuntu-init"
-echo "将安装到: $TARGET_DIR"
-
-# 询问是否需要设置代理
-read -p "您是否需要设置代理来访问外部网络？(y/n): " need_proxy
-
-if [ "$need_proxy" = "y" ] || [ "$need_proxy" = "Y" ]; then
-    # 询问代理信息
-    read -p "请输入代理主机地址: " proxy_host
-    read -p "请输入代理端口: " proxy_port
-    
-    # 验证代理信息
-    if [ -z "$proxy_host" ] || [ -z "$proxy_port" ]; then
-        echo "错误: 代理信息不完整"
-        exit 1
-    fi
-    
-    # 设置临时代理环境变量
-    export http_proxy="http://$proxy_host:$proxy_port"
-    export https_proxy="http://$proxy_host:$proxy_port"
-    export HTTP_PROXY="http://$proxy_host:$proxy_port"
-    export HTTPS_PROXY="http://$proxy_host:$proxy_port"
-    
-    echo "临时代理已设置: http://$proxy_host:$proxy_port"
-else
-    echo "跳过代理设置。"
-    echo "注意: 如果您在内网环境中，可能无法访问外部资源。"
-fi
-
-# 安装git（如果需要）
-if ! command -v git &> /dev/null; then
-    echo "正在安装git..."
-    apt-get update
-    apt-get install -y git
-fi
-
-# 删除旧目录（如果存在）
-if [ -d "$TARGET_DIR" ]; then
-    echo "发现旧安装，正在删除..."
-    rm -rf "$TARGET_DIR"
-fi
-
-# 创建目录并设置权限
-mkdir -p "$TARGET_DIR"
-chown -R $REAL_USER:$REAL_USER "$TARGET_DIR"
-
-# 克隆仓库
-echo "正在克隆Ubuntu初始化仓库..."
-
-# 使用匿名方式克隆，避免需要认证
-GIT_TERMINAL_PROMPT=0 sudo -u $REAL_USER git clone --depth=1 https://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR"
-
-if [ $? -ne 0 ]; then
-    echo "错误: 克隆仓库失败。请检查网络连接或代理设置。"
-    exit 1
-fi
-
-# 进入目录
-cd "$TARGET_DIR"
-
-# 设置所有脚本的执行权限
-echo "设置脚本执行权限..."
-find . -name "*.sh" -exec chmod +x {} \;
-
-# 如果设置了代理，创建.env文件
-if [ "$need_proxy" = "y" ] || [ "$need_proxy" = "Y" ]; then
-    echo "正在创建代理配置..."
-    cat > .env << EOF
-# 代理设置
-# 自动生成于 $(date)
-
-# 代理主机地址
-PROXY_HOST=$proxy_host
-
-# 代理端口
-PROXY_PORT=$proxy_port
-EOF
-fi
-
-# 询问是否开始安装
-echo ""
-echo "准备开始安装Ubuntu开发环境..."
-read -p "是否继续？(y/n): " start_install
-
-if [ "$start_install" = "y" ] || [ "$start_install" = "Y" ]; then
-    echo ""
-    echo "开始安装..."
-    ./ubuntu-init.sh
-else
-    echo ""
-    echo "安装已取消。"
-    echo "您可以稍后通过运行以下命令继续安装："
-    echo "cd $TARGET_DIR && sudo ./ubuntu-init.sh"
-    exit 0
-fi
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/michael-lu-cn/ubuntu-init/main/bootstrap.sh)"
 ```
 
-### 脚本功能
+或者
 
-引导脚本将：
-1. 智能检测并确认安装用户和目录
-2. 引导您设置用户密码（如果需要）
-3. 询问您是否需要设置代理
-4. 克隆仓库到用户主目录下的`.ubuntu-init`目录（而非root目录）
-5. 自动开始安装过程
+```bash
+sudo bash -c "$(wget -qO- https://raw.githubusercontent.com/michael-lu-cn/ubuntu-init/main/bootstrap.sh)"
+```
 
 ## 模块列表
 
-该项目包含以下模块:
+1. **基础模块**：系统工具和依赖
+2. **Neovim模块**：现代编辑器配置
+3. **tmux模块**：终端复用器和会话管理（C-t前缀键）
+4. **zsh模块**：shell环境和提示符
+5. **主题模块**：自动明暗主题管理
 
-1. **基础模块**: 系统工具和依赖
-2. **Neovim模块**: 现代编辑器配置
-3. **tmux模块**: 终端复用器和会话管理
-4. **zsh模块**: shell环境和提示符
-5. **主题模块**: 自动明暗主题管理
+## 首次使用
 
-## 首次使用注意事项
+- 终端支持自动明暗主题切换
+- 首次打开Neovim时运行`:PackerSync`安装插件
+- 首次打开tmux后，按`Ctrl+t`然后按`I`安装插件
 
-- 脚本已预配置了Powerlevel10k，不需要运行配置向导
-- 终端支持自动明暗主题切换，根据系统设置或时间自动调整
-- 如需自定义Powerlevel10k，可以运行`p10k configure`
-- 首次打开Neovim时，需要运行`:PackerSync`安装插件
-- 首次打开tmux后，按下`Ctrl+t`然后按`I`安装插件
+## 配置文件位置
 
-## 定制化
-
-各模块的配置文件位置:
-
-- Neovim配置: `~/.config/nvim/`
-- Zsh配置: `~/.zshrc`, `~/.p10k.zsh`
-- tmux配置: `~/.tmux.conf.local`
-- 主题配置: `~/.config/auto-dark-mode/`
-
-## 故障排除
-
-如果您遇到网络连接问题：
-
-1. 检查代理设置是否正确
-2. 验证您是否可以访问GitHub和其他外部资源
-3. 尝试临时禁用防火墙: `sudo ufw disable`
-
-## 截图
-
-(此处可添加环境截图) 
+- Neovim: `~/.config/nvim/`
+- Zsh: `~/.zshrc`, `~/.p10k.zsh`
+- tmux: `~/.tmux.conf.local`
+- 主题: `~/.config/auto-dark-mode/` 

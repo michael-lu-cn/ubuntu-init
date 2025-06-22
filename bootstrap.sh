@@ -117,12 +117,9 @@ else
     echo "注意: 如果您在内网环境中，可能无法访问外部资源。"
 fi
 
-# 安装git（如果需要）
-if ! command -v git &> /dev/null; then
-    echo "正在安装git..."
-    apt-get update
-    apt-get install -y git
-fi
+# 安装必要工具
+apt-get update
+apt-get install -y git curl unzip
 
 # 删除旧目录（如果存在）
 if [ -d "$TARGET_DIR" ]; then
@@ -134,15 +131,26 @@ fi
 mkdir -p "$TARGET_DIR"
 chown -R $REAL_USER:$REAL_USER "$TARGET_DIR"
 
-# 克隆仓库
-echo "正在克隆Ubuntu初始化仓库..."
-
-# 使用匿名方式克隆，避免需要认证
-GIT_TERMINAL_PROMPT=0 sudo -u $REAL_USER git clone --depth=1 https://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR"
+# 下载仓库
+echo "正在获取代码..."
+TMP_ZIP="/tmp/ubuntu-init.zip"
+curl -L -s -o "$TMP_ZIP" "https://github.com/michael-lu-cn/ubuntu-init/archive/refs/heads/main.zip"
 
 if [ $? -ne 0 ]; then
-    echo "错误: 克隆仓库失败。请检查网络连接或代理设置。"
-    exit 1
+    echo "下载失败，尝试使用git克隆..."
+    GIT_TERMINAL_PROMPT=0 sudo -u $REAL_USER git clone --depth=1 https://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR"
+    
+    if [ $? -ne 0 ]; then
+        echo "错误: 无法获取代码。请检查网络连接或代理设置。"
+        exit 1
+    fi
+else
+    echo "解压代码..."
+    unzip -q "$TMP_ZIP" -d "/tmp/"
+    cp -r /tmp/ubuntu-init-main/* "$TARGET_DIR"
+    rm -f "$TMP_ZIP"
+    rm -rf "/tmp/ubuntu-init-main"
+    chown -R $REAL_USER:$REAL_USER "$TARGET_DIR"
 fi
 
 # 进入目录

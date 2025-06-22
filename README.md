@@ -17,7 +17,7 @@
 2. 保存为`bootstrap.sh`
 3. 执行`sudo bash bootstrap.sh`
 
-> **注意**: 此脚本会克隆公开仓库，不需要提供GitHub账号信息。如果遇到需要输入用户名和密码的提示，可能是网络或代理问题，请尝试设置代理或检查网络连接。
+> **注意**: 此脚本使用匿名方式克隆公开仓库，不需要提供GitHub账号信息。
 
 ### 引导脚本内容
 
@@ -131,9 +131,9 @@ chown -R $REAL_USER:$REAL_USER "$TARGET_DIR"
 
 # 克隆仓库
 echo "正在克隆Ubuntu初始化仓库..."
-# 使用git协议克隆公开仓库，不需要认证
-sudo -u $REAL_USER git clone --depth=1 git://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR" 2>/dev/null || \
-sudo -u $REAL_USER git clone --depth=1 https://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR"
+
+# 使用匿名方式克隆，避免需要认证
+GIT_TERMINAL_PROMPT=0 sudo -u $REAL_USER git clone --depth=1 https://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR"
 
 if [ $? -ne 0 ]; then
     echo "错误: 克隆仓库失败。请检查网络连接或代理设置。"

@@ -11,6 +11,23 @@ if [ "$(id -u)" -ne 0 ]; then
    exit 1
 fi
 
+# 获取真实用户
+REAL_USER=$(logname || echo $SUDO_USER || echo $USER)
+if [ "$REAL_USER" = "root" ]; then
+    read -p "请输入您的用户名（不要使用root）: " REAL_USER
+    if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
+        echo "错误: 需要有效的非root用户名"
+        exit 1
+    fi
+fi
+
+# 获取用户主目录
+USER_HOME=$(eval echo ~$REAL_USER)
+if [ ! -d "$USER_HOME" ]; then
+    echo "错误: 用户主目录 $USER_HOME 不存在"
+    exit 1
+fi
+
 # 脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -71,6 +88,15 @@ echo -e "${BLUE}正在安装主题...${NC}"
 cd "$SCRIPT_DIR/theme"
 ./install.sh
 echo -e "${GREEN}主题安装完成${NC}"
+echo ""
+
+# 设置正确的文件所有权
+echo -e "${BLUE}正在设置文件所有权...${NC}"
+chown -R $REAL_USER:$REAL_USER "$USER_HOME/.config"
+chown -R $REAL_USER:$REAL_USER "$USER_HOME/.zshrc"
+chown -R $REAL_USER:$REAL_USER "$USER_HOME/.p10k.zsh"
+chown -R $REAL_USER:$REAL_USER "$USER_HOME/.tmux.conf.local"
+echo -e "${GREEN}文件所有权设置完成${NC}"
 echo ""
 
 echo -e "${GREEN}=====================================================${NC}"

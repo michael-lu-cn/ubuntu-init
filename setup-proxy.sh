@@ -11,6 +11,23 @@ if [ "$(id -u)" -ne 0 ]; then
    exit 1
 fi
 
+# 获取真实用户
+REAL_USER=$(logname || echo $SUDO_USER || echo $USER)
+if [ "$REAL_USER" = "root" ]; then
+    read -p "请输入您的用户名（不要使用root）: " REAL_USER
+    if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
+        echo "错误: 需要有效的非root用户名"
+        exit 1
+    fi
+fi
+
+# 获取用户主目录
+USER_HOME=$(eval echo ~$REAL_USER)
+if [ ! -d "$USER_HOME" ]; then
+    echo "错误: 用户主目录 $USER_HOME 不存在"
+    exit 1
+fi
+
 # 检查.env文件是否存在
 if [ ! -f .env ]; then
     echo "错误: .env文件不存在"
@@ -46,7 +63,7 @@ export NO_PROXY="localhost,127.0.0.1"
 
 # 保存到shell配置文件
 echo "正在添加代理到shell配置..."
-cat > ~/.proxy_profile << EOF
+cat > "$USER_HOME/.proxy_profile" << EOF
 # 代理设置
 export http_proxy=$PROXY_URL
 export https_proxy=$PROXY_URL
@@ -56,16 +73,19 @@ export no_proxy="localhost,127.0.0.1"
 export NO_PROXY="localhost,127.0.0.1"
 EOF
 
+# 设置正确的所有权
+chown $REAL_USER:$REAL_USER "$USER_HOME/.proxy_profile"
+
 # 添加到.bashrc和.zshrc
-echo "source ~/.proxy_profile" >> ~/.bashrc
-if [ -f ~/.zshrc ]; then
-  echo "source ~/.proxy_profile" >> ~/.zshrc
+echo "source $USER_HOME/.proxy_profile" >> "$USER_HOME/.bashrc"
+if [ -f "$USER_HOME/.zshrc" ]; then
+  echo "source $USER_HOME/.proxy_profile" >> "$USER_HOME/.zshrc"
 fi
 
 # 设置Git代理
 echo "正在设置Git代理..."
-git config --global http.proxy $PROXY_URL
-git config --global https.proxy $PROXY_URL
+sudo -u $REAL_USER git config --global http.proxy $PROXY_URL
+sudo -u $REAL_USER git config --global https.proxy $PROXY_URL
 
 # 设置APT代理
 echo "正在设置APT代理..."
@@ -75,15 +95,15 @@ echo "Acquire::https::Proxy \"$PROXY_URL\";" | tee -a /etc/apt/apt.conf.d/proxy.
 # 设置NPM代理（如果存在）
 if command -v npm &> /dev/null; then
   echo "正在设置NPM代理..."
-  npm config set proxy $PROXY_URL
-  npm config set https-proxy $PROXY_URL
+  sudo -u $REAL_USER npm config set proxy $PROXY_URL
+  sudo -u $REAL_USER npm config set https-proxy $PROXY_URL
 fi
 
 # 设置Yarn代理（如果存在）
 if command -v yarn &> /dev/null; then
   echo "正在设置Yarn代理..."
-  yarn config set proxy $PROXY_URL
-  yarn config set https-proxy $PROXY_URL
+  sudo -u $REAL_USER yarn config set proxy $PROXY_URL
+  sudo -u $REAL_USER yarn config set https-proxy $PROXY_URL
 fi
 
 # 验证代理

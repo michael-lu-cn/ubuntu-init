@@ -17,6 +17,8 @@
 2. 保存为`bootstrap.sh`
 3. 执行`sudo bash bootstrap.sh`
 
+> **注意**: 此脚本会克隆公开仓库，不需要提供GitHub账号信息。如果遇到需要输入用户名和密码的提示，可能是网络或代理问题，请尝试设置代理或检查网络连接。
+
 ### 引导脚本内容
 
 ```bash
@@ -44,33 +46,44 @@ if [ "$(id -u)" -ne 0 ]; then
    exit 1
 fi
 
+# 获取真实用户
+REAL_USER=$(logname || echo $SUDO_USER || echo $USER)
+if [ "$REAL_USER" = "root" ]; then
+    read -p "请输入您的用户名（不要使用root）: " REAL_USER
+    if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
+        echo "错误: 需要有效的非root用户名"
+        exit 1
+    fi
+fi
+
+# 获取用户主目录
+USER_HOME=$(eval echo ~$REAL_USER)
+if [ ! -d "$USER_HOME" ]; then
+    echo "错误: 用户主目录 $USER_HOME 不存在"
+    exit 1
+fi
+
 # 询问是否需要设置用户密码
 echo "首先，您需要确保当前用户有设置密码。"
 read -p "是否需要现在设置密码？(y/n): " need_password
 
 if [ "$need_password" = "y" ] || [ "$need_password" = "Y" ]; then
-    # 获取当前用户名
-    CURRENT_USER=$(logname || echo $SUDO_USER || echo $USER)
-    if [ -z "$CURRENT_USER" ] || [ "$CURRENT_USER" = "root" ]; then
-        read -p "请输入要设置密码的用户名: " CURRENT_USER
-    fi
-    
-    echo "正在为用户 $CURRENT_USER 设置密码..."
-    passwd $CURRENT_USER
+    echo "正在为用户 $REAL_USER 设置密码..."
+    passwd $REAL_USER
     
     if [ $? -ne 0 ]; then
         echo "密码设置失败，但将继续安装过程。"
-        echo "请稍后手动设置密码: sudo passwd $CURRENT_USER"
+        echo "请稍后手动设置密码: sudo passwd $REAL_USER"
     else
         echo "密码设置成功！"
     fi
 else
     echo "跳过密码设置。"
-    echo "注意: 如果您尚未设置密码，请在安装完成后使用 'sudo passwd 用户名' 命令设置。"
+    echo "注意: 如果您尚未设置密码，请在安装完成后使用 'sudo passwd $REAL_USER' 命令设置。"
 fi
 
 # 创建目标目录
-TARGET_DIR="$HOME/.ubuntu-init"
+TARGET_DIR="$USER_HOME/.ubuntu-init"
 echo "将安装到: $TARGET_DIR"
 
 # 询问是否需要设置代理
@@ -112,9 +125,15 @@ if [ -d "$TARGET_DIR" ]; then
     rm -rf "$TARGET_DIR"
 fi
 
+# 创建目录并设置权限
+mkdir -p "$TARGET_DIR"
+chown -R $REAL_USER:$REAL_USER "$TARGET_DIR"
+
 # 克隆仓库
 echo "正在克隆Ubuntu初始化仓库..."
-git clone https://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR"
+# 使用git协议克隆公开仓库，不需要认证
+sudo -u $REAL_USER git clone --depth=1 git://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR" 2>/dev/null || \
+sudo -u $REAL_USER git clone --depth=1 https://github.com/michael-lu-cn/ubuntu-init.git "$TARGET_DIR"
 
 if [ $? -ne 0 ]; then
     echo "错误: 克隆仓库失败。请检查网络连接或代理设置。"
@@ -166,7 +185,7 @@ fi
 引导脚本将：
 1. 引导您设置用户密码（如果需要）
 2. 询问您是否需要设置代理
-3. 克隆仓库到`~/.ubuntu-init`目录
+3. 克隆仓库到用户主目录下的`.ubuntu-init`目录（而非root目录）
 4. 自动开始安装过程
 
 ## 模块列表
